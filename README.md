@@ -21,9 +21,10 @@ Job Desk is a lightweight, browser-only companion to **[ai-job-search](https://g
    - salary talk
    - a cover-letter draft
 4. **Research prompt** for each job, to paste into a Claude chat with web search.
-5. **Search ideas:** LinkedIn, Indeed and Google Jobs links for your target roles, plus suggestions for alternative titles and companies.
-6. **Humanizer:** strips typical AI phrasing from English or German text without changing facts.
-7. **Your data:** you can track a status and notes for each job, download everything as JSON, or delete it all.
+5. **Search for new jobs:** one button searches LinkedIn for your target roles posted in the last 7 days (in your city and/or remote), skips jobs you already have, and quick-scores the rest. Automatic search uses the Claude desktop app's built-in browser and currently works for the artifact's owner only. Everyone else can paste a results page and import it.
+6. **Search ideas:** LinkedIn, Indeed and Google Jobs links for your target roles, plus suggestions for alternative titles and companies.
+7. **Humanizer:** strips typical AI phrasing from English or German text without changing facts.
+8. **Your data:** you can track a status and notes for each job, download everything as JSON, or delete it all.
 
 ## Privacy
 
@@ -39,7 +40,7 @@ If someone shared their published Job Desk with you, open the link while signed 
 
 ### Option 2: publish your own copy
 1. Download `index.html` from this repository.
-2. In Claude (claude.ai or Claude Code), ask: *"Publish this file as an artifact with the capabilities sample, db, user and downloads."*
+2. In Claude (claude.ai or Claude Code), ask: *"Publish this file as an artifact with the capabilities sample, db, user, downloads, and mcp with the host server host:claude_browser (tools navigate, get_page_text, find)."*
 3. Open the artifact and run the setup. To let others use it, share the artifact from its **Share** menu. Each person gets their own private profile.
 
 The page needs these claude.ai artifact capabilities:
@@ -49,6 +50,7 @@ The page needs these claude.ai artifact capabilities:
 | `sample` | Claude answers: CV summary, scoring, prep, humanizer |
 | `db` + `user` | Private per-person storage of profile and jobs |
 | `downloads` | "Download my data" export |
+| `mcp` → `host:claude_browser` (`navigate`, `get_page_text`, `find`) | "Search now": reads LinkedIn's public job search in the Claude desktop app's browser |
 
 It does not work as a static site (for example GitHub Pages), because these capabilities only exist inside claude.ai.
 
@@ -61,7 +63,8 @@ All are loaded from cdnjs and Google Fonts.
 
 ## Limits
 
-- **No automatic job search.** The page can't search job sites by itself. Use the search links, or ai-job-search for daily automated searches.
+- **Automatic search is owner-only and on demand.** "Search now" works in the Claude desktop app for the artifact's owner; other people use the paste import. There's no scheduled daily search in the page: use ai-job-search for that.
+- **Quick scores are rough.** Found jobs are scored from title, company and location only. Paste the full ad under "Add a job" for a proper score.
 - **No live research.** Claude's answers inside the page have no web access. Use the research prompt in a chat with web search to check company facts.
 - **Check everything.** Review every application text before sending it.
 
