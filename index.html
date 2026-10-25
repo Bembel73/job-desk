@@ -623,7 +623,7 @@ $("#reallyDelete").addEventListener("click", async () => {
 let mcp = null;
 const BROWSER = "host:claude_browser";
 const textOf = r => typeof r?.payload === "string" ? r.payload : (r?.content||[]).filter(c => c.type === "text").map(c => c.text).join("\n");
-function searches(){
+function linkSearches(){
   const p = profile.prefs, roles = p.roles.split(",").map(s => s.trim()).filter(Boolean).slice(0, 4), out = [];
   for (const r of roles){
     if (p.city && (p.modes.includes("On-site") || p.modes.includes("Hybrid"))) out.push({q:r, loc:p.city});
@@ -631,8 +631,19 @@ function searches(){
   }
   return out.slice(0, 6);
 }
+// One combined query, so a single click and a single browser confirmation cover every target role.
+function searches(){
+  const p = profile.prefs, roles = p.roles.split(",").map(s => s.trim()).filter(Boolean).slice(0, 8);
+  if (!roles.length) return [];
+  const q = roles.map(r => `"${r.replace(/"/g, "")}"`).join(" OR ");
+  const onsite = p.city && (p.modes.includes("On-site") || p.modes.includes("Hybrid"));
+  const country = p.city ? (p.city.split(",").pop().trim() || p.city) : "";
+  if (onsite) return [{q, loc: country, label: `your target roles in ${country}, including remote`}];
+  const loc = p.remoteScope === "Worldwide" ? "Worldwide" : p.remoteScope === "Europe / EMEA" ? "European Union" : country;
+  return [{q, loc, remote:true, label:"remote roles matching your targets"}];
+}
 const searchUrl = s => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(s.q)}&location=${encodeURIComponent(s.loc)}&f_TPR=r604800${s.remote ? "&f_WT=2" : ""}`;
-function renderSearchLinks(){ $("#srLinks").innerHTML = searches().map(s => `<a class="btn" href="${esc(searchUrl(s))}" target="_blank" rel="noopener">${esc(s.q)}${s.remote ? " · remote" : " · " + esc(s.loc.split(",")[0])}</a>`).join(""); }
+function renderSearchLinks(){ $("#srLinks").innerHTML = linkSearches().map(s => `<a class="btn" href="${esc(searchUrl(s))}" target="_blank" rel="noopener">${esc(s.q)}${s.remote ? " · remote" : " · " + esc(s.loc.split(",")[0])}</a>`).join(""); }
 const knownIds = () => new Set(jobs.map(j => j.id));
 
 async function readSearchPage(url){
@@ -678,7 +689,7 @@ ${listings.map(j => `${j.id} | ${j.title} | ${j.company} | ${j.location}`).join(
 }
 // One search per click: the Claude app only accepts a browser confirmation that comes straight from a click.
 let srStep = 0;
-function srLabel(){ const list = searches(); if (!list.length){ $("#srGo").textContent = "Search now"; return; } const i = srStep % list.length, s = list[i]; $("#srGo").textContent = `Search ${i+1} of ${list.length}: ${s.q}${s.remote ? " (remote)" : ""}`; }
+function srLabel(){ $("#srGo").textContent = "Search now"; }
 function srError(err){
   const c = err?.code, detail = err?.message ? ` (${err.message})` : "";
   return c === "server_not_connected" ? "Automatic search only works in the Claude desktop app, for the page's owner. Use the paste option below."
@@ -697,18 +708,16 @@ $("#srGo").addEventListener("click", async () => {
   const s = list[srStep % list.length];
   const reading = readSearchPage(searchUrl(s));   // starts the browser call inside the click
   btn.disabled = true;
-  out.textContent = `Opening LinkedIn: ${s.q}${s.remote ? " (remote)" : ""}… If the Claude app asks, choose Allow.`;
+  out.textContent = `Searching LinkedIn for ${s.label}… If the Claude app asks, choose Allow.`;
   try{
     const {page, ids} = await reading;
     srStep++;
     const fresh = ids.filter(x => !knownIds().has("li-" + x.id)).slice(0, 25);
-    if (!fresh.length) out.textContent = `No new jobs for "${s.q}".`;
+    if (!fresh.length) out.textContent = `No new jobs since your last search.`;
     else {
       const listings = await extractListings(page, fresh);
-      if (listings.length) await scoreAndSave(listings, out); else out.textContent = `No new jobs for "${s.q}".`;
+      if (listings.length) await scoreAndSave(listings, out); else out.textContent = `No new jobs since your last search.`;
     }
-    const next = list[srStep % list.length];
-    out.textContent += srStep % list.length ? ` Click the button for the next search: ${next.q}${next.remote ? " (remote)" : ""}.` : " That was the last search; the button starts again from the first.";
   }catch(err){ out.textContent = srError(err); }
   btn.disabled = false; srLabel();
 });
