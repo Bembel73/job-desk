@@ -402,7 +402,7 @@ NEVER MENTION in any application text: ${p.neverMention || "nothing specified"}`
 function openDesk(){
   $("#wizard").hidden = true; $("#desk").hidden = false;
   $("#hello").textContent = profile.cv.name ? `${profile.cv.name.split(" ")[0]}'s Job Desk` : "Job Desk";
-  renderProfile(); renderSearch(); renderSearchLinks(); renderJobs();
+  renderProfile(); renderSearch(); renderSearchLinks(); renderJobs(); srLabel();
 }
 function showTab(t){
   $$('nav.tabs .tab').forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
@@ -676,38 +676,41 @@ ${listings.map(j => `${j.id} | ${j.title} | ${j.company} | ${j.location}`).join(
   renderJobs();
   out.textContent = saved ? `Added ${saved} new job${saved > 1 ? "s" : ""}. ${good.length ? "Strong or good fit: " + good.map(g => `${g.title} at ${g.company} (${g.score})`).join("; ") + "." : "None is a strong fit yet."}` : "No new matching jobs this time.";
 }
+// One search per click: the Claude app only accepts a browser confirmation that comes straight from a click.
+let srStep = 0;
+function srLabel(){ const list = searches(); if (!list.length){ $("#srGo").textContent = "Search now"; return; } const i = srStep % list.length, s = list[i]; $("#srGo").textContent = `Search ${i+1} of ${list.length}: ${s.q}${s.remote ? " (remote)" : ""}`; }
+function srError(err){
+  const c = err?.code, detail = err?.message ? ` (${err.message})` : "";
+  return c === "server_not_connected" ? "Automatic search only works in the Claude desktop app, for the page's owner. Use the paste option below."
+    : c === "cancelled" ? `The Claude app didn't let the page open LinkedIn${detail}. Click the button again and choose Allow straight away. If it keeps failing, use the paste option below.`
+    : c === "approval_required" || c === "not_in_manifest" ? "The page needs permission to use the Claude browser. Click the button again and choose Allow."
+    : c === "rate_limited" ? "Too many requests. Try again in a minute."
+    : c === "tool_error" ? "The browser couldn't load LinkedIn" + detail + "."
+    : "The search didn't finish" + detail + ". Try again, or use the paste option below.";
+}
 $("#srGo").addEventListener("click", async () => {
   const out = $("#srOut"), btn = $("#srGo");
   if (!sample){ out.textContent = "Claude isn't available in this view."; return; }
   if (!mcp){ out.textContent = "Automatic search needs the Claude desktop app. Use the paste option below."; return; }
   const list = searches();
   if (!list.length){ out.textContent = "Add target roles and a location in My profile first."; return; }
-  btn.disabled = true; const found = new Map();
+  const s = list[srStep % list.length];
+  const reading = readSearchPage(searchUrl(s));   // starts the browser call inside the click
+  btn.disabled = true;
+  out.textContent = `Opening LinkedIn: ${s.q}${s.remote ? " (remote)" : ""}… If the Claude app asks, choose Allow.`;
   try{
-    let stopped = "", failed = 0;
-    out.textContent = "The Claude app will ask you to confirm opening LinkedIn in its browser. Choose Allow (it can ask once per search).";
-    for (const [i, s] of list.entries()){
-      try{
-        out.textContent = `Searching ${i+1} of ${list.length}: ${s.q}${s.remote ? " (remote)" : ""}… If the Claude app asks to open LinkedIn, choose Allow.`;
-        const {page, ids} = await readSearchPage(searchUrl(s));
-        const fresh = ids.filter(x => !knownIds().has("li-" + x.id) && !found.has(x.id));
-        if (fresh.length) for (const l of await extractListings(page, fresh.slice(0, 25))) found.set(l.id, l);
-      }catch(e){ if (e?.code === "cancelled" || e?.code === "approval_required" || e?.code === "server_not_connected" || e?.code === "not_in_manifest"){ stopped = e.code; break; } failed++; }
+    const {page, ids} = await reading;
+    srStep++;
+    const fresh = ids.filter(x => !knownIds().has("li-" + x.id)).slice(0, 25);
+    if (!fresh.length) out.textContent = `No new jobs for "${s.q}".`;
+    else {
+      const listings = await extractListings(page, fresh);
+      if (listings.length) await scoreAndSave(listings, out); else out.textContent = `No new jobs for "${s.q}".`;
     }
-    if (stopped && !found.size) throw {code: stopped};
-    const note = (stopped ? " The search stopped early because a browser confirmation was declined." : "") + (failed ? ` ${failed} search${failed>1?"es":""} couldn't be read.` : "");
-    if (found.size) await scoreAndSave([...found.values()].slice(0, 40), out); else out.textContent = "No new jobs since your last search." + note;
-    if (found.size && note) out.textContent += note;
-  }catch(err){
-    const c = err?.code;
-    out.textContent = c === "server_not_connected" ? "Automatic search only works in the Claude desktop app, for the page's owner. Use the paste option below."
-      : c === "cancelled" ? "The Claude app asked to confirm opening LinkedIn in its browser, and that was declined or closed, so nothing was searched. Click Search now again and choose Allow on each confirmation."
-      : c === "approval_required" || c === "not_in_manifest" ? "The page needs permission to use the Claude browser. Click Search now again and choose Allow."
-      : c === "rate_limited" ? "Too many requests. Try again in a minute."
-      : c === "tool_error" ? "The browser couldn't load LinkedIn: " + (err.message || "unknown error")
-      : "The search didn't finish. Try again, or use the paste option below.";
-  }
-  btn.disabled = false;
+    const next = list[srStep % list.length];
+    out.textContent += srStep % list.length ? ` Click the button for the next search: ${next.q}${next.remote ? " (remote)" : ""}.` : " That was the last search; the button starts again from the first.";
+  }catch(err){ out.textContent = srError(err); }
+  btn.disabled = false; srLabel();
 });
 $("#srImport").addEventListener("click", async () => {
   const out = $("#srOut"), txt = $("#srPaste").value.trim();
