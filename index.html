@@ -684,17 +684,24 @@ $("#srGo").addEventListener("click", async () => {
   if (!list.length){ out.textContent = "Add target roles and a location in My profile first."; return; }
   btn.disabled = true; const found = new Map();
   try{
+    let stopped = "", failed = 0;
+    out.textContent = "The Claude app will ask you to confirm opening LinkedIn in its browser. Choose Allow (it can ask once per search).";
     for (const [i, s] of list.entries()){
-      out.textContent = `Searching ${i+1} of ${list.length}: ${s.q}${s.remote ? " (remote)" : ""}…`;
-      const {page, ids} = await readSearchPage(searchUrl(s));
-      const fresh = ids.filter(x => !knownIds().has("li-" + x.id) && !found.has(x.id));
-      if (fresh.length) for (const l of await extractListings(page, fresh.slice(0, 25))) found.set(l.id, l);
+      try{
+        out.textContent = `Searching ${i+1} of ${list.length}: ${s.q}${s.remote ? " (remote)" : ""}… If the Claude app asks to open LinkedIn, choose Allow.`;
+        const {page, ids} = await readSearchPage(searchUrl(s));
+        const fresh = ids.filter(x => !knownIds().has("li-" + x.id) && !found.has(x.id));
+        if (fresh.length) for (const l of await extractListings(page, fresh.slice(0, 25))) found.set(l.id, l);
+      }catch(e){ if (e?.code === "cancelled" || e?.code === "approval_required" || e?.code === "server_not_connected" || e?.code === "not_in_manifest"){ stopped = e.code; break; } failed++; }
     }
-    if (found.size) await scoreAndSave([...found.values()].slice(0, 40), out); else out.textContent = "No new jobs since your last search.";
+    if (stopped && !found.size) throw {code: stopped};
+    const note = (stopped ? " The search stopped early because a browser confirmation was declined." : "") + (failed ? ` ${failed} search${failed>1?"es":""} couldn't be read.` : "");
+    if (found.size) await scoreAndSave([...found.values()].slice(0, 40), out); else out.textContent = "No new jobs since your last search." + note;
+    if (found.size && note) out.textContent += note;
   }catch(err){
     const c = err?.code;
     out.textContent = c === "server_not_connected" ? "Automatic search only works in the Claude desktop app, for the page's owner. Use the paste option below."
-      : c === "cancelled" ? "The browser step was declined, so nothing was searched."
+      : c === "cancelled" ? "The Claude app asked to confirm opening LinkedIn in its browser, and that was declined or closed, so nothing was searched. Click Search now again and choose Allow on each confirmation."
       : c === "approval_required" || c === "not_in_manifest" ? "The page needs permission to use the Claude browser. Click Search now again and choose Allow."
       : c === "rate_limited" ? "Too many requests. Try again in a minute."
       : c === "tool_error" ? "The browser couldn't load LinkedIn: " + (err.message || "unknown error")
