@@ -40,4 +40,5 @@ The humanizer prompt draws on the AI-writing patterns documented by:
 
 - PDF.js 3.11.174, Mozilla, Apache License 2.0
 - mammoth.js 1.6.0, Michael Williamson, BSD 2-Clause License
+- docx 8.5.0, Dolan Miu, MIT License
 - Bricolage Grotesque and IBM Plex fonts via Google Fonts, SIL Open Font License
