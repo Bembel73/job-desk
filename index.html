@@ -457,11 +457,7 @@ function card(j){
         <div><span class="eyebrow">Your gaps</span><ul class="tight">${j.gaps.map(r => `<li>${esc(r)}</li>`).join("")}</ul></div></div>
         <p class="note" style="margin-top:8px">${esc(j.dimensions)}</p>
       </details>
-      <details><summary>Research prompt</summary>
-        <p class="note" style="margin:8px 0">Paste into a Claude chat with web search for a sourced brief.</p>
-        <div class="prompt" id="rp-${esc(j.id)}">${esc(researchPrompt(j))}</div>
-        <div class="row" style="margin-top:8px"><button class="btn" data-copy="rp-${esc(j.id)}">Copy prompt</button></div>
-      </details>
+      ${rsBlock(j)}
       <details><summary>Prepare with Claude</summary>
         <div class="row" style="margin-top:10px">${ACTIONS.map(a => `<button class="btn ai" data-job="${esc(j.id)}" data-act="${a.k}"${sample ? "" : " disabled"}>${a.label}</button>`).join("")}</div>
         <div class="out" id="out-${esc(j.id)}" aria-live="polite" style="margin-top:10px"></div>
@@ -483,7 +479,7 @@ function fromDoc(id, v){
   return {id, title:str(v.title,160)||"Untitled role", company:str(v.company,120), location:str(v.location,120), salary:str(v.salary,80)||"not stated",
     score: Number.isFinite(v.score) ? Math.round(v.score) : "–", fit, verdict:str(v.verdict,40)||"Scored", why:str(v.why,500), flag:str(v.flag,300),
     requirements:list(v.requirements,8), gaps:list(v.gaps,6), dimensions:str(v.dimensions,600), lang: v.lang === "de" ? "de" : "en",
-    url: /^https:\/\//.test(v.url||"") ? str(v.url,500) : "", added:str(v.added,10), status: STATUSES.includes(v.status) ? v.status : "New", note:str(v.note,500), posting:str(v.posting,12000)};
+    url: /^https:\/\//.test(v.url||"") ? str(v.url,500) : "", research: v.research && typeof v.research.text === "string" ? {text: v.research.text.slice(0, 20000), created: str(v.research.created, 30)} : null, added:str(v.added,10), status: STATUSES.includes(v.status) ? v.status : "New", note:str(v.note,500), posting:str(v.posting,12000)};
 }
 
 $("#jGo").addEventListener("click", async () => {
@@ -876,6 +872,60 @@ document.addEventListener("click", async e => {
     setTimeout(() => { dl.textContent = label; dl.disabled = false; }, 2500);
   }
 });
+
+/* hooks for company research */
+const RS_SAMPLE = () => sample;
+const RS_CANDIDATE = () => `${profile.cv.headline}. ${profile.cv.summary.slice(0, 900)} Known gaps: ${profile.cv.gaps.join("; ") || "none listed"}.`;
+const RS_JOB = id => jobs.find(j => j.id === id);
+const RS_GET = j => j.research;
+const RS_SAVE = async (j, saved) => { await jobsCol().doc(j.id).update({research: saved}); j.research = saved; };
+/* ---------- company research with Claude ---------- */
+// Page hooks defined before this block: RS_SAMPLE, RS_CANDIDATE, RS_JOB, RS_GET, RS_SAVE.
+function rsBlock(j){
+  const id = esc(j.id), saved = RS_GET(j);
+  return `<details><summary>Company research</summary>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px">
+        <button class="btn primary rsgo" data-job="${id}">${saved ? "Research again" : "Research " + esc(j.company || "this company") + " with Claude"}</button>
+        <span class="note" id="rsmsg-${id}" aria-live="polite">${saved ? "Saved " + esc((saved.created || "").slice(0,10)) : ""}</span>
+      </div>
+      <p class="note" style="margin:8px 0 0">Claude answers from its own knowledge, without live web search, so very recent news may be missing. Check key facts on the company's website before an interview.</p>
+      <div class="out" id="rs-${id}" aria-live="polite" style="margin-top:10px">${saved ? esc(saved.text) : ""}</div>
+      <details style="margin-top:10px"><summary>For live web results, copy this prompt into a Claude chat</summary>
+        <div class="prompt" id="rp-${id}" style="margin-top:8px">${esc(researchPrompt(j))}</div>
+        <div style="margin-top:8px"><button class="btn" data-copy="rp-${id}">Copy prompt</button></div>
+      </details>
+    </details>`;
+}
+async function rsRun(j, btn){
+  const out = document.getElementById("rs-" + j.id), msg = document.getElementById("rsmsg-" + j.id), s = RS_SAMPLE();
+  if (!s){ msg.textContent = "Claude isn't available in this view."; return; }
+  btn.disabled = true; msg.textContent = "Researching…"; out.textContent = "Thinking…";
+  try{
+    const r = await s(`Write a research brief to prepare a job application. Use what you know about the company; do not browse. Be honest about uncertainty: mark anything you are not sure about with "(check)", say when your knowledge may be out of date, and never invent names, numbers or news. Plain text with short headed sections, no markdown symbols, no em-dashes.
+
+Sections:
+1. The company in brief: what it does, owner or parent group, size, main brands, products and markets.
+2. Recent direction: strategy, growth areas, restructuring or leadership changes you know of, with approximate dates.
+3. Marketing and media: how the company markets itself, agencies or platforms it is known to work with, digital maturity.
+4. Culture and reputation as an employer: what employees and the press tend to say, work model if known.
+5. This role: why such a role usually exists here, what success in the first year would likely look like, who it probably reports to.
+6. Fit for the candidate: 3 strengths to stress and 2 gaps to prepare for.
+7. Salary orientation: a rough range for this level and location, clearly marked as an estimate to verify.
+8. Red flags or open questions to clarify.
+9. Five sharp questions to ask in the interview.
+
+COMPANY AND ROLE: ${j.title} at ${j.company} (${j.location}). ${j.why || ""}
+Requirements: ${(j.req || j.requirements || []).join("; ")}
+
+CANDIDATE: ${RS_CANDIDATE()}`, {onText: ({text}) => { out.textContent = text; }, modelTier:"complex"});
+    out.textContent = r.text;
+    const saved = {text: r.text.slice(0, 20000), created: new Date().toISOString()};
+    try{ await RS_SAVE(j, saved); msg.textContent = "Saved " + saved.created.slice(0,10); } catch { msg.textContent = "Done (not saved)"; }
+    btn.textContent = "Research again";
+  }catch(err){ msg.textContent = err?.code === "rate_limited" ? "Too many requests. Try again in a minute." : "The research didn't work. Try again."; out.textContent = RS_GET(j)?.text || ""; }
+  btn.disabled = false;
+}
+document.addEventListener("click", e => { const b = e.target.closest(".rsgo"); if (b){ const j = RS_JOB(b.dataset.job); if (j) rsRun(j, b); } });
 
 /* ---------- start ---------- */
 bindDrop(); showStep(1);
