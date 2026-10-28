@@ -201,6 +201,8 @@ ul.tight{margin:6px 0 0;padding-left:18px}
         <button class="tab" data-f="all" aria-selected="true">All</button>
         <button class="tab" data-f="high" aria-selected="false">Strong & good fit</button>
         <button class="tab" data-f="active" aria-selected="false">In progress</button>
+        <label class="note" for="sortBy" style="margin-left:auto">Sort</label>
+        <select id="sortBy" style="width:auto" aria-label="Sort jobs"><option value="date">Newest first</option><option value="score">Best fit first</option></select>
       </div>
       <div class="jobs" id="jobs"></div>
     </div>
@@ -465,9 +467,19 @@ function card(j){
       <div class="row"><button class="btn danger" data-del="${esc(j.id)}">Remove job</button></div>
     </div></article>`;
 }
+/* ---------- sorting ---------- */
+let sortBy = "date";
+try{ sortBy = localStorage.getItem("jd-sort") || "date"; }catch{}
+$("#sortBy").value = sortBy;
+$("#sortBy").addEventListener("change", e => { sortBy = e.target.value; try{ localStorage.setItem("jd-sort", sortBy); }catch{} renderJobs(); });
+function sortedJobs(){
+  const num = s => typeof s === "number" ? s : (parseInt(s, 10) || 0);
+  return jobs.slice().sort((a, b) => sortBy === "score" ? (num(b.score) - num(a.score)) || (b.added || "").localeCompare(a.added || "") : (b.added || "").localeCompare(a.added || "") || (num(b.score) - num(a.score)));
+}
+
 function renderJobs(){
   const el = $("#jobs");
-  const shown = jobs.filter(j => filter === "all" || (filter === "high" && j.fit === "high") || (filter === "active" && ["Applying","Applied","Interview","Offer"].includes(j.status)));
+  const shown = sortedJobs().filter(j => filter === "all" || (filter === "high" && j.fit === "high") || (filter === "active" && ["Applying","Applied","Interview","Offer"].includes(j.status)));
   if (!jobs.length){
     el.innerHTML = `<div class="panel empty"><h3>No jobs yet</h3><p class="muted">Find an ad under "Search ideas", then paste it into "Add a job" to get your fit score.</p><button class="btn primary" id="goAdd">Add your first job</button></div>`;
     $("#goAdd").addEventListener("click", () => showTab("add")); return;
