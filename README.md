@@ -25,7 +25,7 @@ Job Desk is a lightweight, browser-only companion to **[ai-job-search](https://g
 5. **Search for new jobs:** one button searches LinkedIn for your target roles posted in the last 7 days (in your city and/or remote), as one combined search per click, skips jobs you already have, and quick-scores the rest. Automatic search uses the Claude desktop app's built-in browser and currently works for the artifact's owner only. Everyone else can paste a results page and import it.
 6. **Search ideas:** LinkedIn, Indeed and Google Jobs links for your target roles, plus suggestions for alternative titles and companies.
 7. **Humanizer:** strips typical AI phrasing from English or German text without changing facts.
-8. **Your data:** you can track a status and notes for each job, download everything as JSON, or delete it all.
+8. **Your data:** you can track a status and notes for each job, sort the list by newest first or best fit, filter it to strong and good fits or jobs in progress, download everything as JSON, or delete it all.
 
 ## Privacy
 
