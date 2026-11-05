@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Desk</title>
+<meta name="description" content="A private job-search desk for Claude: upload your CV, score job ads, prepare interviews and create applications.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F3F5F1; --surface:#FFFFFF; --sunken:#E8ECE6; --line:#D3DAD2; --fg:#16211D; --muted:#5B6A63;
+  --accent:#0E6B60; --accent-ink:#FFFFFF; --accent-soft:#D8ECE7;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",sans-serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#101614; --surface:#18201D; --sunken:#0C110F; --line:#2A3531; --fg:#E4EBE7; --muted:#93A39C;
+  --accent:#4FC2B1; --accent-ink:#06201C; --accent-soft:#163430; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--body)}
+.wrap{max-width:900px;margin:0 auto;padding:48px max(16px,env(safe-area-inset-left)) 72px;display:grid;gap:40px}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.15;text-wrap:balance}
+h1{font-size:clamp(36px,6vw,56px)} h2{font-size:26px} h3{font-size:19px}
+p{margin:0;max-width:68ch}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+a{color:var(--accent)}
+.hero{display:grid;gap:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);text-decoration:none;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:hover{border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:6px;align-content:start}
+.card p{font-size:15px}
+section{display:grid;gap:16px}
+ol.steps{margin:0;padding-left:22px;display:grid;gap:12px;max-width:72ch}
+ol.steps li::marker{font-weight:700;color:var(--accent)}
+code,.code{font:14px/1.5 var(--mono);background:var(--sunken);border:1px solid var(--line);border-radius:6px}
+code{padding:1px 6px}
+.code{display:block;padding:12px 14px;white-space:pre-wrap;overflow-x:auto;margin-top:6px}
+.option{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:22px;display:grid;gap:14px}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:5px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent);justify-self:start}
+.note{font-size:14px;color:var(--muted)}
+footer{border-top:1px solid var(--line);padding-top:20px;font-size:14px;color:var(--muted);display:grid;gap:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow">Free and open source · runs in Claude</span>
+    <h1>Job Desk</h1>
+    <p>A private job-search desk that runs inside Claude. Upload your CV, say what you're looking for, and every job ad you add gets a fit score, a research brief, interview prep and a cover letter draft, all based on your real experience.</p>
+    <div class="row">
+      <a class="btn primary" href="#install">How to install</a>
+      <a class="btn" href="https://github.com/Bembel73/job-desk/archive/refs/heads/main.zip">Download (ZIP)</a>
+      <a class="btn" href="https://github.com/Bembel73/job-desk">View on GitHub</a>
+    </div>
+  </header>
+
+  <section>
+    <h2>What it does</h2>
+    <div class="grid">
+      <div class="card"><h3>Set up in minutes</h3><p>Upload your CV (PDF or Word), add your LinkedIn link and answer questions on roles, salary, location, travel and deal-breakers.</p></div>
+      <div class="card"><h3>Score job ads</h3><p>Paste any job ad and get a score, the requirements, your honest gaps and warnings, such as salary below your minimum.</p></div>
+      <div class="card"><h3>Search for jobs</h3><p>Search links for LinkedIn, Indeed and Google Jobs, plus a "Search now" button that reads LinkedIn for you in the Claude desktop app.</p></div>
+      <div class="card"><h3>Prepare</h3><p>Company research, likely interview questions with answers, a 60-second pitch, STAR stories and salary talk.</p></div>
+      <div class="card"><h3>Apply</h3><p>A tailored CV and cover letter as Word files, and a humanizer that removes AI-sounding phrasing in English and German.</p></div>
+      <div class="card"><h3>Private</h3><p>Your profile and jobs are stored in your own private area. Nobody else can read them, not even the person who shared the page.</p></div>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>How to get it</h2>
+    <p class="muted">You need a Claude account (claude.ai). Pick one of these options.</p>
+
+    <div class="option">
+      <span class="tag">Recommended · your own copy</span>
+      <h3>Option A: Publish your own Job Desk with Claude Code</h3>
+      <p>Your own copy means every feature works for you, including the "Search now" button.</p>
+      <ol class="steps">
+        <li><strong>Install Claude Code</strong> if you don't have it yet. The Claude desktop app for Mac or Windows includes it (the "Code" tab). Download: <a href="https://claude.com/download">claude.com/download</a>.</li>
+        <li><strong>Download Job Desk:</strong> click <a href="https://github.com/Bembel73/job-desk/archive/refs/heads/main.zip">Download (ZIP)</a> and unzip it. You get a folder called <code>job-desk-main</code>.</li>
+        <li><strong>Open the folder in Claude Code:</strong> in the Claude desktop app, open the Code tab and choose the <code>job-desk-main</code> folder as your project.</li>
+        <li><strong>Ask Claude to publish it.</strong> Copy this message into Claude Code:
+          <span class="code">Publish index.html as an artifact with the capabilities sample, db, user, downloads, and mcp with the host server host:claude_browser (tools navigate, get_page_text, find).</span></li>
+        <li><strong>Open your link.</strong> Claude replies with a private link like <code>claude.ai/artifact/…</code>. Open it in the Claude desktop app, upload your CV and follow the setup.</li>
+      </ol>
+      <p class="note">Prefer the terminal? Run <code>git clone https://github.com/Bembel73/job-desk.git</code>, then <code>cd job-desk</code> and <code>claude</code>, and send the same message.</p>
+    </div>
+
+    <div class="option">
+      <span class="tag">Quickest · shared link</span>
+      <h3>Option B: Use a link someone shared with you</h3>
+      <ol class="steps">
+        <li>Open the Job Desk link you received while signed in to claude.ai.</li>
+        <li>Upload your CV and follow the setup. Your data stays private to your account.</li>
+      </ol>
+      <p class="note">With a shared link, "Search now" doesn't run automatically. Use the search links instead, copy a results page and click "Import and score".</p>
+    </div>
+
+    <div class="option">
+      <span class="tag">For power users</span>
+      <h3>Option C: Daily automatic job search</h3>
+      <p>Job Desk runs searches when you click. For a daily automatic search, tailored LaTeX CVs and a full application workflow, install <a href="https://github.com/ai-job-search-dev/ai-job-search">ai-job-search</a> with Claude Code and follow its setup.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Good to know</h2>
+    <div class="grid">
+      <div class="card"><h3>What Claude sees</h3><p>Your CV text, job ads and questions are sent to Claude to write answers. The CV file itself is not stored.</p></div>
+      <div class="card"><h3>No live web in answers</h3><p>Research inside the page uses Claude's own knowledge. For current news, copy the research prompt into a Claude chat with web search.</p></div>
+      <div class="card"><h3>Always check</h3><p>Read every CV and letter before sending. Quick scores from search results are rough; paste the full ad for a proper score.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Job Desk is free and open source (MIT licence). Source: <a href="https://github.com/Bembel73/job-desk">github.com/Bembel73/job-desk</a></span>
+    <span>The scoring framework and workflow are adapted from <a href="https://github.com/ai-job-search-dev/ai-job-search">ai-job-search</a> by Mads Lorentzen (MIT). Humanizer rules draw on <a href="https://github.com/blader/humanizer">blader/humanizer</a> and <a href="https://github.com/F-DK/humanizer-de">humanizer-de</a>.</span>
+    <span>Not affiliated with Anthropic.</span>
+  </footer>
+</div>
+</body>
+</html>

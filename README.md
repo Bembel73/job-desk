@@ -36,13 +36,25 @@ Job Desk is a lightweight, browser-only companion to **[ai-job-search](https://g
 
 ## Use it
 
-### Option 1: open a shared link
-If someone shared their published Job Desk with you, open the link while signed in to claude.ai and follow the setup. Your data stays private to your account.
+Step-by-step guide: **https://bembel73.github.io/job-desk/**
 
-### Option 2: publish your own copy
-1. Download `index.html` from this repository.
-2. In Claude (claude.ai or Claude Code), ask: *"Publish this file as an artifact with the capabilities sample, db, user, downloads, and mcp with the host server host:claude_browser (tools navigate, get_page_text, find)."*
-3. Open the artifact and run the setup. To let others use it, share the artifact from its **Share** menu. Each person gets their own private profile.
+### Option A (recommended): publish your own copy with Claude Code
+Your own copy means every feature works, including "Search now".
+
+1. Install the Claude desktop app (it includes Claude Code): https://claude.com/download
+2. Download this repository as a ZIP (green **Code** button → **Download ZIP**, or https://github.com/Bembel73/job-desk/archive/refs/heads/main.zip) and unzip it.
+3. In the Claude desktop app, open the **Code** tab and choose the unzipped `job-desk-main` folder.
+4. Send Claude this message:
+   > Publish index.html as an artifact with the capabilities sample, db, user, downloads, and mcp with the host server host:claude_browser (tools navigate, get_page_text, find).
+5. Open the private link Claude gives you in the Claude desktop app, upload your CV and follow the setup.
+
+Terminal alternative: `git clone https://github.com/Bembel73/job-desk.git && cd job-desk && claude`, then send the same message.
+
+### Option B: open a link someone shared with you
+Open the link while signed in to claude.ai and follow the setup. Your data stays private to your account. With a shared link, "Search now" doesn't run automatically: use the search links, paste a results page and click "Import and score".
+
+### Sharing your own copy
+Open your Job Desk, use the **Share** menu at the top of the artifact and invite people or create a link. Each person gets their own private profile; you can't see their data.
 
 The page needs these claude.ai artifact capabilities:
 
@@ -53,7 +65,7 @@ The page needs these claude.ai artifact capabilities:
 | `downloads` | "Download my data" export |
 | `mcp` → `host:claude_browser` (`navigate`, `get_page_text`, `find`) | "Search now": reads LinkedIn's public job search in the Claude desktop app's browser |
 
-It does not work as a static site (for example GitHub Pages), because these capabilities only exist inside claude.ai.
+The app itself does not work as a static site (for example GitHub Pages), because these capabilities only exist inside claude.ai. The GitHub Pages site (`docs/`) is only the landing page with install instructions.
 
 ### Libraries
 - **PDF text extraction:** [PDF.js](https://mozilla.github.io/pdf.js/) 3.11.174 (Apache 2.0).
