@@ -20,7 +20,7 @@ Job Desk is a lightweight, browser-only companion to **[ai-job-search](https://g
    - STAR stories
    - salary talk
    - a cover-letter draft
-   - **Create CV & cover letter:** on any job without documents, one button writes a tailored CV and cover letter from your real CV and the job ad, and saves both as Word (.docx) files to download.
+   - **Create CV & cover letter:** on any job without documents, one button writes a tailored CV and cover letter from your real CV and the job ad, and saves both as Word (.docx) and PDF files to download.
 4. **Company research** for each job: one button has Claude write a research brief (company, direction, marketing, culture, the role, your fit, salary orientation, red flags, interview questions) and saves it. It uses Claude's own knowledge without live web search; a copyable prompt is included for a chat with web search.
 5. **Search for new jobs:** one button searches LinkedIn for your target roles posted in the last 7 days (in your city and/or remote), as one combined search per click, skips jobs you already have, and quick-scores the rest. Automatic search uses the Claude desktop app's built-in browser and currently works for the artifact's owner only. Everyone else can paste a results page and import it.
 6. **Search ideas:** LinkedIn, Indeed and Google Jobs links for your target roles, plus suggestions for alternative titles and companies.
@@ -71,6 +71,7 @@ The app itself does not work as a static site (for example GitHub Pages), becaus
 - **PDF text extraction:** [PDF.js](https://mozilla.github.io/pdf.js/) 3.11.174 (Apache 2.0).
 - **Word (.docx) text extraction:** [mammoth.js](https://github.com/mwilliamson/mammoth.js) 1.6.0 (BSD-2).
 - **Word (.docx) file creation:** [docx](https://github.com/dolanmiu/docx) 8.5.0 (MIT).
+- **PDF file creation:** [jsPDF](https://github.com/parallax/jsPDF) 2.5.1 (MIT).
 - **Fonts:** Bricolage Grotesque and IBM Plex from Google Fonts (OFL).
 
 All are loaded from cdnjs, jsDelivr and Google Fonts.

@@ -5,6 +5,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 /* Layout: a personal job-search desk. Setup wizard first; then a tab bar (Jobs · Add job · Search ideas · Tools · Profile). */
 :root{
@@ -756,7 +757,7 @@ const DG_CONTACT = (job, docs) => ({name: profile.cv.name || "", line: [docs.con
 const DG_JOB = id => jobs.find(j => j.id === id);
 const DG_DOCS = job => job.docs;
 const DG_SAVE = async (job, docs) => { await jobsCol().doc(job.id).update({docs}); job.docs = docs; renderJobs(); };
-/* ---------- create documents (CV + cover letter as Word files) ---------- */
+/* ---------- create documents (CV + cover letter as Word and PDF files) ---------- */
 // Page-specific hooks defined before this block: DG_SAMPLE, DG_FACTS, DG_RULES, DG_CVLANG, DG_CONTACT, DG_SAVE, DG_JOB, DG_DOCS, DG_DOWNLOADS.
 const dgStr = (v, max=800) => typeof v === "string" ? v.slice(0, max).replace(/\s+—\s+/g, ", ") : "";
 const dgList = (v, n=8, max=400) => Array.isArray(v) ? v.filter(x => typeof x === "string").slice(0, n).map(x => dgStr(x, max)) : [];
@@ -834,22 +835,124 @@ function dgLetterDocx(l, contact){
   ];
   return new docx.Document({sections:[{properties:{page:{margin:{top:1100, bottom:1000, left:1200, right:1200}}}, children: ch.filter(Boolean)}]});
 }
+/* PDF versions of the same CV and letter (jsPDF, standard Helvetica covers German umlauts) */
+function dgPdfWriter(m){
+  const pdf = new window.jspdf.jsPDF({unit:"pt", format:"a4"});
+  const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
+  const L = m.l, R = W - m.r, T = m.t, B = H - m.b;
+  const hex = c => [0, 2, 4].map(i => parseInt((c || "16211D").slice(i, i + 2), 16));
+  const font = t => { pdf.setFont("helvetica", t.bold && t.italics ? "bolditalic" : t.bold ? "bold" : t.italics ? "italic" : "normal"); pdf.setFontSize(t.size); };
+  const w = {pdf, L, R, T, B, y: T,
+    ensure(h){ if (w.y + h > B){ pdf.addPage(); w.y = T; } },
+    para(runs, o = {}){
+      const size = o.size || 10.5, lh = size * 1.3, x0 = L + (o.bullet ? 12 : 0), maxX = o.right || R;
+      w.y += o.before || 0;
+      const toks = [];
+      (Array.isArray(runs) ? runs : [runs]).forEach(r => String(r.text || "").replace(/\s+—\s+/g, ", ").split(/(\s+)/).forEach(s => { if (s) toks.push({s, bold: r.bold, italics: r.italics, color: r.color, size: r.size || size}); }));
+      const lines = []; let line = [], lw = 0;
+      for (const t of toks){
+        const sp = /^\s+$/.test(t.s); if (sp) t.s = " ";
+        if (sp && !line.length) continue;
+        font(t); const tw = pdf.getTextWidth(t.s);
+        if (!sp && lw + tw > maxX - x0 && line.length){
+          while (line.length && line[line.length - 1].s === " ") lw -= line.pop().tw;
+          lines.push({line, lw}); line = []; lw = 0;
+        }
+        line.push({...t, tw}); lw += tw;
+      }
+      while (line.length && line[line.length - 1].s === " ") lw -= line.pop().tw;
+      if (line.length) lines.push({line, lw});
+      lines.forEach((ln, i) => {
+        const ls = Math.max(size, ...ln.line.map(t => t.size)), llh = Math.max(lh, ls * 1.2), base = w.y + ls * 0.95;
+        w.ensure(llh);
+        if (o.bullet && i === 0){ font({size}); pdf.setTextColor(...hex("0E6B60")); pdf.text("•", L + 2, w.y + size * 0.95); }
+        const segs = [];
+        for (const t of ln.line){ const p = segs[segs.length - 1]; if (p && p.bold === t.bold && p.italics === t.italics && p.color === t.color && p.size === t.size){ p.s += t.s; } else segs.push({...t}); }
+        let x = o.align === "right" ? maxX - ln.lw : x0;
+        for (const t of segs){ font(t); pdf.setTextColor(...hex(t.color)); pdf.text(t.s, x, w.y + ls * 0.95); x += pdf.getTextWidth(t.s); }
+        w.y += llh;
+      });
+      w.y += o.after || 0;
+    },
+    heading(t){
+      w.ensure(46); w.y += 10;
+      w.para({text: t, bold: true, size: 12.5, color: "0E6B60"});
+      pdf.setDrawColor(...hex("B9C7C1")); pdf.setLineWidth(0.6); pdf.line(L, w.y + 1, R, w.y + 1); w.y += 6;
+    },
+    blob(){ return pdf.output("blob"); }
+  };
+  return w;
+}
+function dgCvPdf(c, contact){
+  const w = dgPdfWriter({t:45, b:45, l:50, r:50}), de = contact.lang === "de";
+  let right;
+  if (contact.photoData){
+    try{
+      const u8 = new Uint8Array(contact.photoData), fmt = u8[0] === 0x89 ? "PNG" : "JPEG";
+      w.pdf.addImage(u8, fmt, w.R - 72, w.T, 72, 72); right = w.R - 86;
+    }catch{}
+  }
+  const top = w.y;
+  w.para({text: contact.name, bold: true, size: 20, color: "0E6B60"}, {after: 3, right});
+  if (c.headline) w.para({text: c.headline, size: 11}, {after: 3, right});
+  w.para({text: contact.line, size: 9, color: "5B6A63"}, {after: 8, right});
+  if (right) w.y = Math.max(w.y, top + 80);
+  w.heading(de ? "Profil" : "Profile"); w.para({text: c.profile}, {after: 4});
+  if (c.competencies.length){ w.heading(de ? "Kernkompetenzen" : "Core Competencies"); c.competencies.forEach(k => w.para([{text: k.label + ": ", bold: true}, {text: k.text}], {bullet: true, after: 2})); }
+  w.heading(de ? "Berufserfahrung" : "Professional Experience");
+  for (const e of c.experience){
+    w.ensure(50);
+    w.para([{text: e.title, bold: true}, {text: e.company ? "  ·  " + e.company : "", bold: true}], {before: 5});
+    const meta = [e.location, e.dates].filter(Boolean).join("  ·  ");
+    if (meta) w.para({text: meta, italics: true, size: 9.5, color: "5B6A63"}, {after: 2});
+    e.bullets.forEach(b => w.para({text: b}, {bullet: true, after: 1.5}));
+  }
+  if (c.education.length){ w.heading(de ? "Ausbildung" : "Education"); c.education.forEach(e => w.para([{text: e.title, bold: true}, {text: [e.school, e.dates].filter(Boolean).length ? "  ·  " + [e.school, e.dates].filter(Boolean).join(", ") : ""}], {after: 2})); }
+  if (c.languages){ w.heading(de ? "Sprachen" : "Languages"); w.para({text: c.languages}); }
+  return w.blob();
+}
+function dgLetterPdf(l, contact){
+  const w = dgPdfWriter({t:55, b:50, l:60, r:60});
+  const date = new Date().toLocaleDateString(l.lang === "de" ? "de-DE" : "en-GB", {day:"numeric", month:"long", year:"numeric"});
+  w.para({text: contact.name, bold: true, size: 16, color: "0E6B60"}, {after: 1});
+  w.para({text: contact.line, size: 9, color: "5B6A63"}, {after: 12});
+  w.para({text: date}, {align: "right", after: 10});
+  if (l.subject) w.para({text: l.subject, bold: true}, {after: 10});
+  w.para({text: l.greeting || (l.lang === "de" ? "Sehr geehrte Damen und Herren," : "Dear Hiring Team,")}, {after: 8});
+  l.intro.forEach(p => w.para({text: p}, {after: 7}));
+  l.bullets.forEach(b => w.para({text: b}, {bullet: true, after: 3}));
+  l.after.forEach(p => w.para({text: p}, {before: 4, after: 7}));
+  if (l.closing) w.para({text: l.closing}, {after: 12});
+  w.para({text: l.signoff || (l.lang === "de" ? "Mit freundlichen Grüßen" : "Kind regards")}, {after: 18});
+  w.para({text: contact.name});
+  return w.blob();
+}
 const dgSafe = s => String(s || "").replace(/[^A-Za-z0-9ÄÖÜäöüß]+/g, "_").replace(/^_|_$/g, "").slice(0, 40);
-async function dgDownload(job, kind, docs){
+async function dgDownload(job, kind, docs, fmt = "docx"){
   const dl = DG_DOWNLOADS();
   if (!dl) throw {code:"unavailable"};
-  if (!window.docx) throw {code:"no_library"};
+  if (fmt === "pdf" ? !window.jspdf : !window.docx) throw {code:"no_library"};
   const contact = DG_CONTACT(job, docs);
-  const doc = kind === "cv" ? dgCvDocx(docs.cv, contact) : dgLetterDocx(docs.letter, contact);
-  const blob = await docx.Packer.toBlob(doc);
+  if (kind === "cv" && contact.photo){ try{ const pr = await fetch(contact.photo); if (pr.ok) contact.photoData = await pr.arrayBuffer(); }catch{} }
+  const blob = fmt === "pdf"
+    ? (kind === "cv" ? dgCvPdf(docs.cv, contact) : dgLetterPdf(docs.letter, contact))
+    : await docx.Packer.toBlob(kind === "cv" ? dgCvDocx(docs.cv, contact) : dgLetterDocx(docs.letter, contact));
   const who = dgSafe(contact.name);
-  const name = kind === "cv" ? `${who}_CV_${dgSafe(job.company)}.docx` : `${who}_${docs.letter.lang === "de" ? "Anschreiben" : "Cover_Letter"}_${dgSafe(job.company)}.docx`;
-  await dl.save({filename: name, data: blob});
+  const base = kind === "cv" ? `${who}_CV_${dgSafe(job.company)}` : `${who}_${docs.letter.lang === "de" ? "Anschreiben" : "Cover_Letter"}_${dgSafe(job.company)}`;
+  await dl.save({filename: `${base}.${fmt}`, data: blob});
+}
+const DG_FILES = [["cv","docx"],["cv","pdf"],["letter","docx"],["letter","pdf"]];
+async function dgDownloadAll(job, docs){
+  let ok = 0, err;
+  for (const [kind, fmt] of DG_FILES){ try{ await dgDownload(job, kind, docs, fmt); ok++; }catch(e){ err = e; if (e?.code === "unavailable" || e?.code === "no_library") break; } }
+  return {ok, err};
 }
 function dgBlock(job, docs){
   const id = esc(job.id);
-  if (docs) return `<div class="dg" data-dgjob="${id}"><span class="eyebrow">Documents (Word)</span>
-      <div class="dgrow"><button class="btn dgdl" data-kind="cv" data-job="${id}">⤓ CV (Word)</button><button class="btn dgdl" data-kind="letter" data-job="${id}">⤓ Cover letter (Word)</button><span class="note">Created ${esc((docs.created || "").slice(0,10))}. Check every line before sending.</span></div></div>`;
+  if (docs) return `<div class="dg" data-dgjob="${id}"><span class="eyebrow">Documents (Word + PDF)</span>
+      <div class="dgrow"><button class="btn primary dgall" data-job="${id}">⤓ All 4 files (Word + PDF)</button></div>
+      <div class="dgrow"><button class="btn dgdl" data-kind="cv" data-fmt="docx" data-job="${id}">⤓ CV (Word)</button><button class="btn dgdl" data-kind="cv" data-fmt="pdf" data-job="${id}">⤓ CV (PDF)</button><button class="btn dgdl" data-kind="letter" data-fmt="docx" data-job="${id}">⤓ Cover letter (Word)</button><button class="btn dgdl" data-kind="letter" data-fmt="pdf" data-job="${id}">⤓ Cover letter (PDF)</button></div>
+      <span class="note">Created ${esc((docs.created || "").slice(0,10))}. Check every line before sending.</span></div>`;
   return `<div class="dg" data-dgjob="${id}"><button class="btn dgopen" data-job="${id}">Create CV &amp; cover letter</button>
       <div class="dgform" hidden>
         <label class="note" for="dgad-${id}">Full job ad text (recommended: paste it for a better result)</label>
@@ -866,7 +969,10 @@ async function dgCreate(job, btn){
     if (!docs.cv.experience.length || !docs.letter.intro.length) throw {code:"empty"};
     docs.created = new Date().toISOString();
     await DG_SAVE(job, docs);
-    msg.textContent = "Done.";
+    msg.textContent = "Done. Saving CV and cover letter as Word and PDF…";
+    const r = await dgDownloadAll(job, docs);
+    const m2 = document.getElementById("dgmsg-" + job.id) || msg;
+    m2.textContent = r.ok === 4 ? "Done. 4 files saved (Word + PDF)." : "Done. Use the buttons to save the Word and PDF files.";
   }catch(e){ msg.textContent = e?.code === "rate_limited" ? "Too many requests. Try again in a minute." : "Creating the documents didn't work. Try again."; btn.disabled = false; }
 }
 document.addEventListener("click", async e => {
@@ -874,13 +980,23 @@ document.addEventListener("click", async e => {
   if (open){ const f = open.parentElement.querySelector(".dgform"); f.hidden = !f.hidden; return; }
   const go = e.target.closest(".dggo");
   if (go){ const job = DG_JOB(go.dataset.job); if (job) dgCreate(job, go); return; }
+  const all = e.target.closest(".dgall");
+  if (all){
+    const job = DG_JOB(all.dataset.job), docs = job && DG_DOCS(job), label = all.textContent;
+    if (!docs) return;
+    all.disabled = true; all.textContent = "Preparing…";
+    const r = await dgDownloadAll(job, docs);
+    all.textContent = r.ok === 4 ? "4 files saved" : r.ok ? `${r.ok} of 4 saved` : r.err?.code === "unavailable" ? "Downloads not available here" : r.err?.code === "no_library" ? "Document builder didn't load" : "Not saved";
+    setTimeout(() => { all.textContent = label; all.disabled = false; }, 3000);
+    return;
+  }
   const dl = e.target.closest(".dgdl");
   if (dl){
     const job = DG_JOB(dl.dataset.job), docs = job && DG_DOCS(job), label = dl.textContent;
     if (!docs) return;
     dl.disabled = true; dl.textContent = "Preparing…";
-    try{ await dgDownload(job, dl.dataset.kind, docs); dl.textContent = "Saved"; }
-    catch(err){ dl.textContent = err?.code === "unavailable" ? "Downloads not available here" : err?.code === "no_library" ? "Word builder didn't load" : "Not saved"; }
+    try{ await dgDownload(job, dl.dataset.kind, docs, dl.dataset.fmt || "docx"); dl.textContent = "Saved"; }
+    catch(err){ dl.textContent = err?.code === "unavailable" ? "Downloads not available here" : err?.code === "no_library" ? "Document builder didn't load" : "Not saved"; }
     setTimeout(() => { dl.textContent = label; dl.disabled = false; }, 2500);
   }
 });
