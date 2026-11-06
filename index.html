@@ -793,7 +793,7 @@ JOB: ${job.title} at ${job.company} (${job.location}).
 Summary: ${job.why || ""}
 Requirements: ${(job.req || job.requirements || []).join("; ")}
 Known gaps: ${(job.gaps || []).join("; ")}
-${posting ? "FULL JOB AD:\n" + posting.slice(0, 12000) : "No full ad text available; work from the summary and requirements."}`, {modelTier:"complex"});
+${posting ? "JOB AD PAGE TEXT (may include website navigation, other job listings or cookie notices: use only the description of this job):\n" + posting.slice(0, 14000) : "No full ad text available; work from the summary and requirements."}`, {modelTier:"complex"});
   return dgClean(r);
 }
 function dgRun(text, opts={}){ return new docx.TextRun({text, font:"Calibri", size: opts.size || 21, bold: !!opts.bold, italics: !!opts.italics, color: opts.color}); }
@@ -953,23 +953,39 @@ function dgBlock(job, docs){
       <div class="dgrow"><button class="btn primary dgall" data-job="${id}">⤓ All 4 files (Word + PDF)</button></div>
       <div class="dgrow"><button class="btn dgdl" data-kind="cv" data-fmt="docx" data-job="${id}">⤓ CV (Word)</button><button class="btn dgdl" data-kind="cv" data-fmt="pdf" data-job="${id}">⤓ CV (PDF)</button><button class="btn dgdl" data-kind="letter" data-fmt="docx" data-job="${id}">⤓ Cover letter (Word)</button><button class="btn dgdl" data-kind="letter" data-fmt="pdf" data-job="${id}">⤓ Cover letter (PDF)</button></div>
       <span class="note">Created ${esc((docs.created || "").slice(0,10))}. Check every line before sending.</span></div>`;
-  return `<div class="dg" data-dgjob="${id}"><button class="btn dgopen" data-job="${id}">Create CV &amp; cover letter</button>
+  return `<div class="dg" data-dgjob="${id}">
+      <div class="dgrow"><button class="btn primary dggo" data-job="${id}">Create CV &amp; cover letter</button><button class="btn dgopen" data-job="${id}">Paste the ad instead</button><span class="note" id="dgmsg-${id}" aria-live="polite"></span></div>
+      <p class="note" style="margin:0">Claude opens the job ad in the Claude desktop app's browser and reads it for you.</p>
       <div class="dgform" hidden>
-        <label class="note" for="dgad-${id}">Full job ad text (recommended: paste it for a better result)</label>
+        <label class="note" for="dgad-${id}">Only if reading the ad doesn't work: paste the job ad text here, then click "Create CV &amp; cover letter".</label>
         <textarea id="dgad-${id}" placeholder="Paste the job ad…"></textarea>
-        <div class="dgrow"><button class="btn primary dggo" data-job="${id}">Create documents</button><span class="note" id="dgmsg-${id}" aria-live="polite"></span></div>
       </div></div>`;
 }
+/* Reads the job ad itself in the Claude desktop app's browser, so nothing has to be copied and pasted. */
+const DG_AD_URL = job => job.url || (/^\d{6,}$/.test(String(job.id)) ? `https://www.linkedin.com/jobs/view/${job.id}` : "");
+async function dgFetchAd(job){
+  const url = DG_AD_URL(job);
+  if (!url || typeof mcp === "undefined" || !mcp) return "";
+  await mcp.callTool(BROWSER, "navigate", {url});
+  const t = textOf(await mcp.callTool(BROWSER, "get_page_text", {max_chars: 30000}));
+  return t.length > 400 ? t : "";
+}
 async function dgCreate(job, btn){
-  const msg = document.getElementById("dgmsg-" + job.id), posting = (document.getElementById("dgad-" + job.id)?.value || "").trim() || job.posting || "";
+  const msg = document.getElementById("dgmsg-" + job.id);
+  let posting = (document.getElementById("dgad-" + job.id)?.value || "").trim() || job.posting || "";
   if (!DG_SAMPLE()){ msg.textContent = "Claude isn't available in this view."; return; }
-  btn.disabled = true; msg.textContent = "Writing your CV and cover letter… this takes about a minute.";
+  const fetching = posting ? null : dgFetchAd(job).catch(() => "");   // starts the browser call inside the click
+  btn.disabled = true;
   try{
+    if (fetching){ msg.textContent = "Reading the job ad… If the Claude app asks, choose Allow."; posting = await fetching; }
+    msg.textContent = posting ? "Writing your CV and cover letter… this takes about a minute." : "Couldn't read the job ad, so working from the job summary. Writing… (for a better result, use \"Paste the ad instead\")";
     const docs = await dgGenerate(job, posting);
     if (!docs.cv.experience.length || !docs.letter.intro.length) throw {code:"empty"};
     docs.created = new Date().toISOString();
+    docs.fromAd = !!posting;
     await DG_SAVE(job, docs);
-    msg.textContent = "Done. Saving CV and cover letter as Word and PDF…";
+    const m1 = document.getElementById("dgmsg-" + job.id) || msg;
+    m1.textContent = "Done. Saving CV and cover letter as Word and PDF…";
     const r = await dgDownloadAll(job, docs);
     const m2 = document.getElementById("dgmsg-" + job.id) || msg;
     m2.textContent = r.ok === 4 ? "Done. 4 files saved (Word + PDF)." : "Done. Use the buttons to save the Word and PDF files.";
@@ -977,7 +993,7 @@ async function dgCreate(job, btn){
 }
 document.addEventListener("click", async e => {
   const open = e.target.closest(".dgopen");
-  if (open){ const f = open.parentElement.querySelector(".dgform"); f.hidden = !f.hidden; return; }
+  if (open){ const f = open.closest(".dg").querySelector(".dgform"); f.hidden = !f.hidden; if (!f.hidden) f.querySelector("textarea")?.focus(); return; }
   const go = e.target.closest(".dggo");
   if (go){ const job = DG_JOB(go.dataset.job); if (job) dgCreate(job, go); return; }
   const all = e.target.closest(".dgall");
